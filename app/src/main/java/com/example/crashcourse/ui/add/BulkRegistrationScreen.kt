@@ -1,11 +1,10 @@
 package com.example.crashcourse.ui.add
 
-import android.graphics.Bitmap
+import android.app.Application
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,97 +17,77 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.crashcourse.viewmodel.FaceViewModel
-import com.example.crashcourse.utils.PhotoProcessingUtils
 import com.example.crashcourse.viewmodel.BulkRegistrationViewModel
-import com.example.crashcourse.utils.PhotoStorageUtils
-
-import kotlinx.coroutines.launch
+import com.example.crashcourse.viewmodel.BulkRegistrationViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkRegistrationScreen(
-    faceViewModel: FaceViewModel = viewModel(),
-    bulkViewModel: BulkRegistrationViewModel = viewModel()
-) {
+fun BulkRegistrationScreen() {
+
+    // --------------------------------------------------
+    // Context & ViewModel (WITH FACTORY)
+    // --------------------------------------------------
     val context = LocalContext.current
-    val bulkState by bulkViewModel.state.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
+    val application = context.applicationContext as Application
 
-    // ---------- Single Registration (Manual) ----------
-    var name by remember { mutableStateOf("") }
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var embedding by remember { mutableStateOf<FloatArray?>(null) }
-    var feedback by remember { mutableStateOf<String?>(null) }
-    var isProcessing by remember { mutableStateOf(false) }
+    val bulkViewModel: BulkRegistrationViewModel = viewModel(
+        factory = BulkRegistrationViewModelFactory(application)
+    )
 
-    // ---------- Batch Registration ----------
+    val state by bulkViewModel.state.collectAsState()
+
+    // --------------------------------------------------
+    // UI State
+    // --------------------------------------------------
     var fileUri by remember { mutableStateOf<Uri?>(null) }
     var fileName by remember { mutableStateOf<String?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // ---------- Photo Picker ----------
-    val photoLauncher =
+    // --------------------------------------------------
+    // CSV Picker
+    // --------------------------------------------------
+    val csvLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            uri?.let {
-                val bmp = PhotoStorageUtils.loadBitmapFromUri(context, it)
+            uri ?: return@rememberLauncherForActivityResult
 
-                if (bmp != null) {
-                    coroutineScope.launch {
-                        val result =
-                            PhotoProcessingUtils.processBitmapForFaceEmbedding(context, bmp)
-                        if (result != null) {
-                            val (faceBitmap, emb) = result
-                            bitmap = faceBitmap
-                            embedding = emb
-                            feedback = null
-                        } else {
-                            bitmap = bmp
-                            embedding = null
-                            feedback = "No face detected. Try another photo."
-                        }
-                    }
+            val resolver = context.contentResolver
+            var displayName: String? = null
+
+            resolver.query(uri, null, null, null, null)?.use { cursor ->
+                val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (cursor.moveToFirst() && idx != -1) {
+                    displayName = cursor.getString(idx)
                 }
+            }
+
+            val mime = resolver.getType(uri)?.lowercase() ?: ""
+            val isCsv =
+                mime.contains("csv") || displayName?.endsWith(".csv", true) == true
+
+            if (isCsv) {
+                fileUri = uri
+                fileName = displayName ?: "selected.csv"
+                errorMessage = null
+                bulkViewModel.resetState()
+                bulkViewModel.prepareProcessing(context, uri)
+            } else {
+                errorMessage = "Only CSV files are supported"
             }
         }
 
-    // ---------- CSV Picker ----------
-    val fileLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            uri?.let {
-                val resolver = context.contentResolver
-                var nameFromMeta: String? = null
-
-                resolver.query(it, null, null, null, null)?.use { cursor ->
-                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (cursor.moveToFirst() && idx != -1) {
-                        nameFromMeta = cursor.getString(idx)
-                    }
-                }
-
-                val mime = resolver.getType(it)?.lowercase() ?: ""
-                val isCsv =
-                    mime.contains("csv") || nameFromMeta?.endsWith(".csv", true) == true
-
-                if (isCsv) {
-                    fileUri = it
-                    fileName = nameFromMeta ?: "selected.csv"
-                    bulkViewModel.resetState()
-                    bulkViewModel.prepareProcessing(context, it)
-                } else {
-                    feedback = "Only CSV files are supported"
-                }
-            }
-        }
-
+    // --------------------------------------------------
+    // UI
+    // --------------------------------------------------
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Bulk Registration") }) }
+        topBar = {
+            TopAppBar(title = { Text("Bulk Registration") })
+        }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -116,99 +95,20 @@ fun BulkRegistrationScreen(
                 .verticalScroll(rememberScrollState())
         ) {
 
-            // =========================================================
-            // SINGLE REGISTRATION
-            // =========================================================
-            Text("Single Registration", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Name") },
-                modifier = Modifier.fillMaxWidth()
+            // ==============================
+            // SELECT CSV
+            // ==============================
+            Text(
+                text = "Batch Registration",
+                style = MaterialTheme.typography.titleLarge
             )
 
             Spacer(Modifier.height(12.dp))
 
-            Button(
-                onClick = { photoLauncher.launch("image/*") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.Default.Image, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Select Photo")
-            }
-
-            bitmap?.let {
-                Spacer(Modifier.height(12.dp))
-                Image(
-                    bitmap = it.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(160.dp)
-                        .align(Alignment.CenterHorizontally)
-                )
-            }
-
-            feedback?.let {
-                Text(it, color = Color.Red, modifier = Modifier.padding(top = 8.dp))
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    if (embedding == null || name.isBlank()) {
-                        feedback = "Name and valid face are required"
-                        return@Button
-                    }
-
-                    isProcessing = true
-
-                    faceViewModel.registerFace(
-                        name = name.trim(),
-                        embedding = embedding!!,
-                        onSuccess = {
-                            feedback = "Registration successful"
-                            name = ""
-                            bitmap = null
-                            embedding = null
-                            isProcessing = false
-                        },
-                        onDuplicate = {
-                            feedback = "Duplicate face detected"
-                            isProcessing = false
-                        }
-                    )
-                },
-                enabled = !isProcessing && embedding != null && name.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (isProcessing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Register User")
-                }
-            }
-
-            // =========================================================
-            // BATCH REGISTRATION
-            // =========================================================
-            Spacer(Modifier.height(32.dp))
-            Divider()
-            Spacer(Modifier.height(16.dp))
-
-            Text("Batch Registration", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(12.dp))
-
             OutlinedButton(
-                onClick = { fileLauncher.launch("*/*") },
+                onClick = { csvLauncher.launch("*/*") },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !bulkState.isProcessing
+                enabled = !state.isProcessing
             ) {
                 Icon(Icons.Default.FolderOpen, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -217,13 +117,35 @@ fun BulkRegistrationScreen(
 
             fileName?.let {
                 Spacer(Modifier.height(8.dp))
-                Text("Selected file: $it", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = "Selected file: $it",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
-            if (fileUri != null && !bulkState.isProcessing) {
-                Spacer(Modifier.height(12.dp))
+            state.estimatedTime?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
+
+            errorMessage?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, color = Color.Red)
+            }
+
+            // ==============================
+            // START PROCESS
+            // ==============================
+            if (fileUri != null && !state.isProcessing) {
+                Spacer(Modifier.height(16.dp))
                 Button(
-                    onClick = { bulkViewModel.processCsvFile(context, fileUri!!) },
+                    onClick = {
+                        bulkViewModel.processCsvFile(context, fileUri!!)
+                    },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.CloudUpload, contentDescription = null)
@@ -232,37 +154,49 @@ fun BulkRegistrationScreen(
                 }
             }
 
-            if (bulkState.isProcessing) {
+            // ==============================
+            // PROGRESS
+            // ==============================
+            if (state.isProcessing) {
                 Spacer(Modifier.height(16.dp))
                 LinearProgressIndicator(
-                    progress = bulkState.progress,
+                    progress = state.progress,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
-                Text(bulkState.status)
+                Text(state.status)
             }
 
-            if (bulkState.results.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                Text("Results", style = MaterialTheme.typography.titleMedium)
+            // ==============================
+            // RESULTS
+            // ==============================
+            if (state.results.isNotEmpty()) {
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    text = "Results",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(Modifier.height(8.dp))
 
                 LazyColumn(
                     modifier = Modifier
-                        .heightIn(max = 320.dp)
+                        .heightIn(max = 360.dp)
                         .fillMaxWidth()
                 ) {
-                    items(bulkState.results) { result ->
-                        val color =
-                            if (result.status == "Registered") Color.Green
-                            else if (result.status.startsWith("Duplicate")) Color(0xFFFFA500)
-                            else Color.Red
+                    items(state.results) { result ->
+                        val color = when {
+                            result.status == "Registered" -> Color(0xFF2E7D32)
+                            result.status.startsWith("Duplicate") -> Color(0xFFFF8F00)
+                            else -> Color(0xFFC62828)
+                        }
 
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = color.copy(alpha = 0.1f)
+                                containerColor = color.copy(alpha = 0.08f)
                             )
                         ) {
                             Row(
@@ -271,20 +205,29 @@ fun BulkRegistrationScreen(
                             ) {
                                 Icon(
                                     imageVector = when {
-                                        result.status == "Registered" -> Icons.Default.Check
-                                        result.status.startsWith("Duplicate") -> Icons.Default.Warning
-                                        else -> Icons.Default.Error
+                                        result.status == "Registered" ->
+                                            Icons.Default.CheckCircle
+                                        result.status.startsWith("Duplicate") ->
+                                            Icons.Default.Warning
+                                        else ->
+                                            Icons.Default.Error
                                     },
                                     contentDescription = null,
                                     tint = color
                                 )
-                                Spacer(Modifier.width(8.dp))
+
+                                Spacer(Modifier.width(12.dp))
+
                                 Column {
                                     Text(
                                         text = result.name,
                                         fontWeight = FontWeight.Medium
                                     )
-                                    Text(result.status, color = color)
+                                    Text(
+                                        text = result.status,
+                                        color = color,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                 }
                             }
                         }

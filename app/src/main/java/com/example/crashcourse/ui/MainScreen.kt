@@ -28,7 +28,7 @@ fun MainScreen() {
     val navController = rememberNavController()
     var useBackCamera by remember { mutableStateOf(false) }
 
-    // Shared ViewModel
+    // Shared ViewModel (used where needed)
     val sharedFaceViewModel: FaceViewModel = viewModel()
 
     Scaffold(
@@ -62,13 +62,12 @@ fun MainScreen() {
                 )
             }
 
+            // ✅ FIXED: Bulk Registration (NO parameters)
             composable(Screen.BulkRegister.route) {
-                BulkRegistrationScreen(
-                    faceViewModel = sharedFaceViewModel
-                )
+                BulkRegistrationScreen()
             }
 
-            // ✅ FIXED: Face Management screen
+            // Face Management screen
             composable(Screen.Manage.route) {
                 FaceListScreen(
                     onEditUser = { face: FaceEntity ->
@@ -79,7 +78,7 @@ fun MainScreen() {
                 )
             }
 
-            // ✅ Edit user screen
+            // Edit user screen
             composable(
                 route = Screen.EditUser.route,
                 arguments = listOf(
@@ -89,15 +88,13 @@ fun MainScreen() {
                 val studentId =
                     backStackEntry.arguments?.getString("studentId") ?: return@composable
 
-               EditUserScreen(
-    studentId = studentId,
-    onNavigateBack = { navController.popBackStack() },
-    onUserUpdated = {
-        // When user is updated, return to list
-        navController.popBackStack()
-    }
-)
-
+                EditUserScreen(
+                    studentId = studentId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onUserUpdated = {
+                        navController.popBackStack()
+                    }
+                )
             }
 
             composable(Screen.Options.route) {

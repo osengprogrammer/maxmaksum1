@@ -1,65 +1,83 @@
 #include <jni.h>
 #include <android/log.h>
-#include <string>
+#include <vector>
+#include "image_processor.h"
 
-#define LOG_TAG "FaceBridge"
+#define LOG_TAG "FacePreprocessJNI"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// Native model state (dummy for now)
-namespace {
-    bool g_modelInitialized = false;
-    std::string g_modelPath;
-}
-
 extern "C" {
 
-JNIEXPORT jboolean JNICALL
-Java_com_example_crashcourse_nativebridge_FaceBridge_initializeNative(
-    JNIEnv *env, jclass clazz, jstring modelPath) {
-    LOGD("initializeNative() called");
-    const char *pathStr = env->GetStringUTFChars(modelPath, nullptr);
-    if (pathStr == nullptr) {
-        LOGE("Failed to get model path string");
-        return JNI_FALSE;
-    }
-    g_modelPath = pathStr;
-    env->ReleaseStringUTFChars(modelPath, pathStr);
-    // TODO: Load your model here using g_modelPath
-    g_modelInitialized = true;
-    LOGD("Model initialized at path: %s", g_modelPath.c_str());
-    return JNI_TRUE;
-}
-
-JNIEXPORT jfloatArray JNICALL
-Java_com_example_crashcourse_nativebridge_FaceBridge_recognizeFace___3F(
-    JNIEnv *env, jclass clazz, jfloatArray input) {
-    if (!g_modelInitialized) {
-        LOGE("recognizeFace() called before model initialized!");
+/**
+ * ByteBuffer preprocessFace(
+ *   byte[] nv21,
+ *   int width,
+ *   int height,
+ *   int left,
+ *   int top,
+ *   int right,
+ *   int bottom,
+ *   int rotation
+ * )
+ */
+JNIEXPORT jobject JNICALL
+Java_com_example_crashcourse_nativebridge_FaceBridge_preprocessFace(
+    JNIEnv* env,
+    jclass,
+    jbyteArray nv21,
+    jint width,
+    jint height,
+    jint left,
+    jint top,
+    jint right,
+    jint bottom,
+    jint rotation
+) {
+    if (!nv21) {
+        LOGE("nv21 input is null");
         return nullptr;
     }
-    jsize inputLength = env->GetArrayLength(input);
-    jfloat* inputData = env->GetFloatArrayElements(input, nullptr);
-    LOGD("recognizeFace() called with input length: %d", inputLength);
-    // Dummy embedding
-    const int embeddingSize = 128;
-    jfloat dummyEmbedding[embeddingSize];
-    for (int i = 0; i < embeddingSize; ++i) {
-        dummyEmbedding[i] = (i % 10) * 0.1f;
-    }
-    jfloatArray output = env->NewFloatArray(embeddingSize);
-    env->SetFloatArrayRegion(output, 0, embeddingSize, dummyEmbedding);
-    env->ReleaseFloatArrayElements(input, inputData, JNI_ABORT);
-    return output;
-}
 
-JNIEXPORT void JNICALL
-Java_com_example_crashcourse_nativebridge_FaceBridge_closeNative(
-    JNIEnv *env, jclass clazz) {
-    LOGD("closeNative() called");
-    // TODO: Free model resources here
-    g_modelInitialized = false;
-    g_modelPath.clear();
+    const int outputSize =
+        FACE_INPUT_SIZE * FACE_INPUT_SIZE * FACE_CHANNELS;
+
+    // Allocate native float buffer
+    float* outputBuffer = new float[outputSize];
+
+    jbyte* nv21Data = env->GetByteArrayElements(nv21, nullptr);
+    if (!nv21Data) {
+        LOGE("Failed to get NV21 data");
+        delete[] outputBuffer;
+        return nullptr;
+    }
+
+    preprocessImage(
+        reinterpret_cast<uint8_t*>(nv21Data),
+        width,
+        height,
+        left,
+        top,
+        right,
+        bottom,
+        rotation,
+        outputBuffer
+    );
+
+    env->ReleaseByteArrayElements(nv21, nv21Data, JNI_ABORT);
+
+    // Wrap float buffer into DirectByteBuffer
+    jobject byteBuffer = env->NewDirectByteBuffer(
+        outputBuffer,
+        outputSize * sizeof(float)
+    );
+
+    // IMPORTANT:
+    // Ownership of outputBuffer is now with JVM.
+    // It will be freed when ByteBuffer is GC’d.
+
+    LOGD("Preprocessing finished, returning ByteBuffer");
+    return byteBuffer;
 }
 
 } // extern "C"
