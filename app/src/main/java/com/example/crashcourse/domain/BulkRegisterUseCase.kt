@@ -3,9 +3,9 @@ package com.example.crashcourse.domain
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.example.crashcourse.ml.StaticFaceEmbeddingPipeline
 import com.example.crashcourse.utils.BulkPhotoProcessor
 import com.example.crashcourse.utils.CsvImportUtils
-import com.example.crashcourse.utils.PhotoProcessingUtils
 import com.example.crashcourse.utils.PhotoStorageUtils
 import com.example.crashcourse.utils.ProcessResult
 
@@ -17,22 +17,18 @@ import com.example.crashcourse.utils.ProcessResult
  * - Loop students
  * - Resolve photo source
  * - Decode bitmap
- * - Extract face embedding
+ * - Extract face embedding (STATIC PIPELINE)
  * - Save face photo
  * - Delegate identity rules to RegisterFaceUseCase
  *
- * DOES NOT:
- * - Touch UI
- * - Emit UI strings
- * - Manage progress state directly
+ * Used by:
+ * - Bulk registration (CSV)
+ * - Single photo upload (1 student = bulk size 1)
  */
 class BulkRegisterUseCase(
     private val registerFaceUseCase: RegisterFaceUseCase
 ) {
 
-    /**
-     * Estimate processing time for UI preview
-     */
     suspend fun estimateTime(
         context: Context,
         csvUri: Uri
@@ -47,14 +43,11 @@ class BulkRegisterUseCase(
                 seconds > 60 -> "1 minute ${seconds % 60} seconds"
                 else -> "$seconds seconds"
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
-    /**
-     * Execute bulk registration
-     */
     suspend fun execute(
         context: Context,
         csvUri: Uri,
@@ -76,9 +69,10 @@ class BulkRegisterUseCase(
     }
 
     /**
-     * Process ONE student safely
+     * Process ONE student safely.
+     * This method is reusable for single upload.
      */
-    private suspend fun processSingleStudent(
+    suspend fun processSingleStudent(
         context: Context,
         student: CsvImportUtils.CsvStudentData
     ): ProcessResult {
@@ -115,15 +109,15 @@ class BulkRegisterUseCase(
             )
 
         // --------------------------------------------------
-        // 3. Face detection + embedding
+        // 3. Static face embedding pipeline
         // --------------------------------------------------
         val embeddingResult =
-            PhotoProcessingUtils.processBitmapForFaceEmbedding(context, bitmap)
+            StaticFaceEmbeddingPipeline.extract(bitmap)
                 ?: return ProcessResult(
                     studentId = student.studentId,
                     name = student.name,
                     status = "Error",
-                    error = "No face detected",
+                    error = "No valid face detected",
                     photoSize = photoResult.originalSize
                 )
 
@@ -145,7 +139,7 @@ class BulkRegisterUseCase(
         )
 
         // --------------------------------------------------
-        // 5. Delegate registration to domain UseCase
+        // 5. Delegate registration rules
         // --------------------------------------------------
         return when (
             val result = registerFaceUseCase.execute(

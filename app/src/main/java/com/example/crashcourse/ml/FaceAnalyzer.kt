@@ -83,6 +83,43 @@ class FaceAnalyzer(
 
                             val embedding = FaceRecognizer.recognizeFace(buffer)
                             embeddings.add(embedding)
+                            Log.e(
+    "FaceAnalyzer",
+    "CAMERA embedding sample: ${
+        embedding.take(10).joinToString(
+            prefix = "[",
+            postfix = "]"
+        ) { String.format("%.4f", it) }
+    }"
+)
+
+val min = embedding.minOrNull()
+val max = embedding.maxOrNull()
+val avg = embedding.average()
+
+Log.e(
+    "FaceAnalyzer",
+    "CAMERA stats → min=$min max=$max avg=$avg"
+)
+Log.e(
+    "FaceAnalyzer",
+    "CAMERA embedding sample: ${
+        embedding.take(10).joinToString(
+            prefix = "[",
+            postfix = "]"
+        ) { String.format("%.4f", it) }
+    }"
+)
+
+val camMin = embedding.minOrNull()
+val camMax = embedding.maxOrNull()
+val camAvg = embedding.average()
+
+Log.e(
+    "FaceAnalyzer",
+    "CAMERA stats → min=$min max=$max avg=$avg"
+)
+
 
                         } catch (e: Exception) {
                             Log.e(

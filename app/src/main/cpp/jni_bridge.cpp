@@ -1,6 +1,6 @@
 #include <jni.h>
 #include <android/log.h>
-#include <vector>
+#include <cstdlib>
 #include "image_processor.h"
 
 #define LOG_TAG "FacePreprocessJNI"
@@ -9,18 +9,6 @@
 
 extern "C" {
 
-/**
- * ByteBuffer preprocessFace(
- *   byte[] nv21,
- *   int width,
- *   int height,
- *   int left,
- *   int top,
- *   int right,
- *   int bottom,
- *   int rotation
- * )
- */
 JNIEXPORT jobject JNICALL
 Java_com_example_crashcourse_nativebridge_FaceBridge_preprocessFace(
     JNIEnv* env,
@@ -42,13 +30,18 @@ Java_com_example_crashcourse_nativebridge_FaceBridge_preprocessFace(
     const int outputSize =
         FACE_INPUT_SIZE * FACE_INPUT_SIZE * FACE_CHANNELS;
 
-    // Allocate native float buffer
-    float* outputBuffer = new float[outputSize];
+    float* outputBuffer =
+        (float*) malloc(outputSize * sizeof(float));
+
+    if (!outputBuffer) {
+        LOGE("Failed to allocate output buffer");
+        return nullptr;
+    }
 
     jbyte* nv21Data = env->GetByteArrayElements(nv21, nullptr);
     if (!nv21Data) {
         LOGE("Failed to get NV21 data");
-        delete[] outputBuffer;
+        free(outputBuffer);
         return nullptr;
     }
 
@@ -66,18 +59,22 @@ Java_com_example_crashcourse_nativebridge_FaceBridge_preprocessFace(
 
     env->ReleaseByteArrayElements(nv21, nv21Data, JNI_ABORT);
 
-    // Wrap float buffer into DirectByteBuffer
     jobject byteBuffer = env->NewDirectByteBuffer(
         outputBuffer,
         outputSize * sizeof(float)
     );
 
-    // IMPORTANT:
-    // Ownership of outputBuffer is now with JVM.
-    // It will be freed when ByteBuffer is GC’d.
+    if (!byteBuffer) {
+        LOGE("Failed to create DirectByteBuffer");
+        free(outputBuffer);
+        return nullptr;
+    }
 
     LOGD("Preprocessing finished, returning ByteBuffer");
     return byteBuffer;
+
+    // NOTE:
+    // outputBuffer will be freed later when lifecycle control is added.
 }
 
 } // extern "C"
