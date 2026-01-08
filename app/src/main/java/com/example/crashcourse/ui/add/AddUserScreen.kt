@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.crashcourse.scanner.FaceAnalyzerController
 import com.example.crashcourse.scanner.FaceCaptureScreen
 import com.example.crashcourse.viewmodel.FaceViewModel
+import com.example.crashcourse.viewmodel.AddUserViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -27,6 +28,9 @@ fun AddUserScreen(
 ) {
     // ---------- STATE ----------
     var uiState by remember { mutableStateOf(AddUserUiState()) }
+
+    // ---------- CONTEXT ----------
+    val context = LocalContext.current
 
     // ---------- VIEWMODELS ----------
     val addUserViewModel: AddUserViewModel = viewModel()
@@ -38,7 +42,6 @@ fun AddUserScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     // ---------- SIDE EFFECT ----------
     LaunchedEffect(uiState.isSaved) {
@@ -181,40 +184,39 @@ fun AddUserScreen(
                 Spacer(Modifier.height(32.dp))
 
                 // ---------- REGISTER BUTTON ----------
-               Button(
-    onClick = {
-        if (!uiState.canSubmit) return@Button
+                Button(
+                    onClick = {
+                        if (!uiState.canSubmit) return@Button
 
-        uiState = uiState.copy(isSubmitting = true)
+                        uiState = uiState.copy(isSubmitting = true)
 
-        addUserViewModel.registerUser(
-            context = context,
-            state = uiState,
-            faceViewModel = faceViewModel,
-            onSuccess = {
-                uiState = AddUserUiState(isSaved = true)
-                onUserAdded()
-            },
-            onDuplicate = { existingName ->
-                uiState = uiState.copy(isSubmitting = false)
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        "Duplicate detected: $existingName"
-                    )
-                }
-            },
-            onError = { message ->
-                uiState = uiState.copy(isSubmitting = false)
-                scope.launch {
-                    snackbarHostState.showSnackbar(message)
-                }
-            }
-        )
-    },
-    enabled = uiState.canSubmit && !uiState.isSubmitting, // ✅ correct
-    modifier = Modifier.fillMaxWidth()
-)
- {
+                        addUserViewModel.registerUser(
+                            context = context,
+                            state = uiState,
+                            faceViewModel = faceViewModel,
+                            onSuccess = {
+                                uiState = AddUserUiState(isSaved = true)
+                                onUserAdded()
+                            },
+                            onDuplicate = { existingName ->
+                                uiState = uiState.copy(isSubmitting = false)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        "Duplicate detected: $existingName"
+                                    )
+                                }
+                            },
+                            onError = { message ->
+                                uiState = uiState.copy(isSubmitting = false)
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        )
+                    },
+                    enabled = uiState.canSubmit && !uiState.isSubmitting,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (uiState.isSubmitting) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),

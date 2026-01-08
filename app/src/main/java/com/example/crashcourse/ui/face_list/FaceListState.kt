@@ -10,6 +10,7 @@ class FaceListState(
     private val viewModel: FaceViewModel,
     private val facesState: State<List<FaceEntity>>
 ) {
+
     var searchQuery by mutableStateOf("")
         private set
 
@@ -24,9 +25,17 @@ class FaceListState(
             it.name.contains(searchQuery, ignoreCase = true)
         }
 
+    /* -------------------------
+     * Search
+     * ------------------------- */
+
     fun onSearchChange(value: String) {
         searchQuery = value
     }
+
+    /* -------------------------
+     * Edit Flow
+     * ------------------------- */
 
     fun startEdit(face: FaceEntity) {
         editingFace = face
@@ -37,15 +46,26 @@ class FaceListState(
     }
 
     fun saveEdit(updated: FaceEntity) {
-        viewModel.updateFace(updated) {
-            editingFace = null
-        }
+        viewModel.updateFace(
+            face = updated,
+            photo = null,                  // no photo update from list
+            embedding = updated.embedding, // keep existing embedding
+            onComplete = {
+                editingFace = null
+            },
+            onError = {
+                editingFace = null
+            }
+        )
     }
+
+    /* -------------------------
+     * Delete
+     * ------------------------- */
 
     fun delete(face: FaceEntity) {
         viewModel.deleteFace(face)
     }
-
 }
 
 @Composable

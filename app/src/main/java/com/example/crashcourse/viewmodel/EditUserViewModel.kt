@@ -114,7 +114,7 @@ class EditUserViewModel(
     }
 
     /* -------------------------
-     * Save Logic
+     * Save Logic (UPDATED)
      * ------------------------- */
 
     fun save(
@@ -132,30 +132,29 @@ class EditUserViewModel(
         _uiState.value = state.copy(isProcessing = true)
 
         val updatedUser = user.copy(name = state.name.trim())
+
         val finalEmbedding = state.embedding ?: user.embedding
+
         val resizedBitmap = state.capturedBitmap?.let {
             PhotoStorageUtils.resizeBitmap(it, 800)
         }
 
-        if (state.embedding != null || state.capturedBitmap != null) {
-            faceViewModel.updateFaceWithPhoto(
-                face = updatedUser,
-                photoBitmap = resizedBitmap,
-                embedding = finalEmbedding,
-                onComplete = {
-                    _uiState.value = _uiState.value.copy(isProcessing = false)
-                    onSuccess()
-                },
-                onError = { msg ->
-                    _uiState.value = _uiState.value.copy(isProcessing = false)
-                    onError(msg)
-                }
-            )
-        } else {
-            faceViewModel.updateFace(updatedUser) {
-                _uiState.value = _uiState.value.copy(isProcessing = false)
+        // 🔥 ALWAYS use the new unified updateFace API
+        faceViewModel.updateFace(
+            face = updatedUser,
+            photo = resizedBitmap,
+            embedding = finalEmbedding,
+            onComplete = {
+                _uiState.value = _uiState.value.copy(
+                    isProcessing = false,
+                    hasUnsavedChanges = false
+                )
                 onSuccess()
+            },
+            onError = { msg ->
+                _uiState.value = _uiState.value.copy(isProcessing = false)
+                onError(msg)
             }
-        }
+        )
     }
 }
