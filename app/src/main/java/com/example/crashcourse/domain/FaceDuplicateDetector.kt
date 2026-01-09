@@ -1,9 +1,18 @@
 package com.example.crashcourse.domain
 
-import com.example.crashcourse.utils.cosineDistance
+import com.example.crashcourse.domain.config.FaceMatchPolicy
+import com.example.crashcourse.domain.face.FaceMatcher
+import com.example.crashcourse.domain.face.RecognitionResult
 
+/**
+ * Registration-time duplicate guard.
+ *
+ * Delegates biometric truth to FaceMatcher
+ * and applies registration-specific policy.
+ */
 class FaceDuplicateDetector(
-    private val threshold: Float
+    private val matcher: FaceMatcher,
+    private val policy: FaceMatchPolicy
 ) {
 
     fun findDuplicate(
@@ -11,21 +20,16 @@ class FaceDuplicateDetector(
         embedding: FloatArray
     ): String? {
 
-        var bestName: String? = null
-        var bestDistance = Float.MAX_VALUE
+        val result = matcher.matchBest(
+            gallery = cache,
+            probe = embedding,
+            threshold = policy.registrationThreshold(),
+            minMargin = policy.minMargin()   // ✅ NEW (important)
+        )
 
-        for ((name, existingEmbedding) in cache) {
-            val distance = cosineDistance(existingEmbedding, embedding)
-            if (distance < bestDistance) {
-                bestDistance = distance
-                bestName = name
-            }
-        }
-
-        return if (bestName != null && bestDistance <= threshold) {
-            bestName
-        } else {
-            null
+        return when (result) {
+            is RecognitionResult.Match -> result.id
+            is RecognitionResult.NoMatch -> null
         }
     }
 }

@@ -9,6 +9,8 @@ import com.example.crashcourse.data.repository.FacePhotoRepository
 import com.example.crashcourse.data.repository.FaceRepository
 import com.example.crashcourse.db.*
 import com.example.crashcourse.domain.*
+import com.example.crashcourse.domain.config.DefaultFaceMatchPolicy
+import com.example.crashcourse.domain.face.FaceMatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,13 +32,22 @@ class FaceViewModel(application: Application) : AndroidViewModel(application) {
     private val cacheManager = FaceCacheManager(application)
 
     // --------------------------------------------------
+    // Biometric Core (SINGLE SOURCE OF TRUTH)
+    // --------------------------------------------------
+    private val faceMatcher = FaceMatcher()
+    private val faceMatchPolicy = DefaultFaceMatchPolicy()
+
+    // --------------------------------------------------
     // UseCases
     // --------------------------------------------------
     private val registerFaceUseCase = RegisterFaceUseCase(
-    cacheManager = cacheManager,
-    faceRepository = faceRepository,
-    duplicateDetector = FaceDuplicateDetector(threshold = 0.3f)
-)
+        cacheManager = cacheManager,
+        faceRepository = faceRepository,
+        duplicateDetector = FaceDuplicateDetector(
+            matcher = faceMatcher,
+            policy = faceMatchPolicy
+        )
+    )
 
     private val updateFaceUseCase = UpdateFaceUseCase(
         faceRepository = faceRepository,
@@ -158,7 +169,7 @@ class FaceViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --------------------------------------------------
-    // Backward Compatibility (Optional)
+    // Backward Compatibility
     // --------------------------------------------------
 
     fun registerFace(
