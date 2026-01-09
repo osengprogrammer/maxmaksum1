@@ -9,6 +9,8 @@ import com.example.crashcourse.db.CheckInRecordDao
 import com.example.crashcourse.db.FaceCache
 import com.example.crashcourse.domain.CheckInPolicy
 import com.example.crashcourse.domain.FaceRecognitionUseCase
+import com.example.crashcourse.domain.config.DefaultFaceMatchPolicy
+import com.example.crashcourse.domain.face.FaceMatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,19 +21,37 @@ class CheckInRecognitionViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    // ---------- DOMAIN ----------
-    private val recognitionUseCase = FaceRecognitionUseCase()
+    // --------------------------------------------------
+    // Biometric Core (SINGLE SOURCE OF TRUTH)
+    // --------------------------------------------------
+    private val faceMatcher = FaceMatcher()
+    private val faceMatchPolicy = DefaultFaceMatchPolicy()
+
+    // --------------------------------------------------
+    // DOMAIN
+    // --------------------------------------------------
+    private val recognitionUseCase = FaceRecognitionUseCase(
+        matcher = faceMatcher,
+        policy = faceMatchPolicy
+    )
+
     private val checkInPolicy = CheckInPolicy(cooldownMinutes = 2)
 
-    // ---------- DATABASE ----------
+    // --------------------------------------------------
+    // DATABASE
+    // --------------------------------------------------
     private val checkInRecordDao: CheckInRecordDao =
         AppDatabase.getInstance(application).checkInRecordDao()
 
-    // ---------- CACHE ----------
+    // --------------------------------------------------
+    // CACHE
+    // --------------------------------------------------
     // Pair<studentId, embedding>
     private var gallery: List<Pair<String, FloatArray>> = emptyList()
 
-    // ---------- UI STATE ----------
+    // --------------------------------------------------
+    // UI STATE
+    // --------------------------------------------------
     private val _state = MutableStateFlow(CheckInRecognitionState())
     val state: StateFlow<CheckInRecognitionState> = _state
 
