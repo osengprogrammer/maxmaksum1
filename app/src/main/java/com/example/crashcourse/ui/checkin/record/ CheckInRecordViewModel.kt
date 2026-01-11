@@ -1,4 +1,4 @@
-package com.example.crashcourse.viewmodel
+package com.example.crashcourse.ui.checkin.records
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -10,15 +10,17 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class CheckInViewModel(application: Application) : AndroidViewModel(application) {
+class CheckInRecordsViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
     private val database = AppDatabase.getInstance(application)
     private val checkInRecordDao = database.checkInRecordDao()
-    private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-    
+
     fun exportToPdf(records: List<CheckInRecord>): File {
         return ExportUtils.exportToPdf(getApplication(), records)
     }
-    
+
     fun exportToCsv(records: List<CheckInRecord>): File {
         return ExportUtils.exportToCsv(getApplication(), records)
     }
@@ -34,13 +36,24 @@ class CheckInViewModel(application: Application) : AndroidViewModel(application)
         programId: Int? = null,
         roleId: Int? = null
     ): Flow<List<CheckInRecord>> {
-        val parsedStartDate = if (startDate.isNotBlank()) {
-            LocalDateTime.parse("$startDate 00:00:00", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        } else null
 
-        val parsedEndDate = if (endDate.isNotBlank()) {
-            LocalDateTime.parse("$endDate 23:59:59", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
-        } else null
+        val parsedStartDate = startDate
+            .takeIf { it.isNotBlank() }
+            ?.let {
+                LocalDateTime.parse(
+                    "$it 00:00:00",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                )
+            }
+
+        val parsedEndDate = endDate
+            .takeIf { it.isNotBlank() }
+            ?.let {
+                LocalDateTime.parse(
+                    "$it 23:59:59",
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                )
+            }
 
         return checkInRecordDao.getFilteredRecords(
             nameFilter = nameFilter,

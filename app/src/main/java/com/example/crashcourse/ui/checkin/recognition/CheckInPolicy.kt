@@ -1,4 +1,4 @@
-package com.example.crashcourse.domain
+package com.example.crashcourse.ui.checkin.recognition
 
 import java.time.Duration
 import java.time.LocalDateTime

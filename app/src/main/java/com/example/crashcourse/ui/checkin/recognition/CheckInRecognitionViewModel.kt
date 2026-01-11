@@ -1,4 +1,4 @@
-package com.example.crashcourse.ui.checkin
+package com.example.crashcourse.ui.checkin.recognition
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -7,7 +7,6 @@ import com.example.crashcourse.db.AppDatabase
 import com.example.crashcourse.db.CheckInRecord
 import com.example.crashcourse.db.CheckInRecordDao
 import com.example.crashcourse.db.FaceCache
-import com.example.crashcourse.domain.CheckInPolicy
 import com.example.crashcourse.domain.FaceRecognitionUseCase
 import com.example.crashcourse.domain.config.DefaultFaceMatchPolicy
 import com.example.crashcourse.domain.face.FaceMatcher
@@ -79,13 +78,13 @@ class CheckInRecognitionViewModel(
             handleRecognizedFace(matchedStudentId)
         } else {
             _state.value = CheckInRecognitionState(
-                loading = false,
-                matchName = null,
-                isRegistered = false,
-                alreadyCheckedIn = false,
-                notRegistered = true,
-                remainingCooldownSeconds = 0L
-            )
+    loading = false,
+    matchName = null,
+    alreadyCheckedIn = false,
+    notRegistered = true,
+    remainingCooldownSeconds = 0L
+)
+
         }
     }
 
@@ -115,7 +114,6 @@ class CheckInRecognitionViewModel(
             _state.value = CheckInRecognitionState(
                 loading = false,
                 matchName = studentId,
-                isRegistered = true,
                 alreadyCheckedIn = !canCheckIn,
                 notRegistered = false,
                 remainingCooldownSeconds = remainingSeconds

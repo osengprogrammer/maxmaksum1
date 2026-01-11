@@ -1,4 +1,4 @@
-package com.example.crashcourse.ui
+package com.example.crashcourse.ui.record
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

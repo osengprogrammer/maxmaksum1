@@ -18,6 +18,7 @@ import com.example.crashcourse.navigation.Screen
 import com.example.crashcourse.ui.add.AddUserScreen
 import com.example.crashcourse.ui.add.BulkRegistrationScreen
 import com.example.crashcourse.ui.checkin.CheckInScreen
+import com.example.crashcourse.ui.checkin.record.CheckInRecordScreen
 import com.example.crashcourse.ui.edit.EditUserScreen
 import com.example.crashcourse.ui.face_list.FaceListScreen
 import com.example.crashcourse.viewmodel.FaceViewModel

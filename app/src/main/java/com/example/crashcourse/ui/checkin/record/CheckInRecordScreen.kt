@@ -1,4 +1,4 @@
-package com.example.crashcourse.ui
+package com.example.crashcourse.ui.checkin.record
 
 import android.content.Context
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -27,7 +27,8 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import com.example.crashcourse.viewmodel.CheckInViewModel
+import com.example.crashcourse.ui.checkin.records.CheckInRecordsViewModel
+
 import com.example.crashcourse.viewmodel.OptionsViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.crashcourse.db.*
@@ -37,7 +38,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CheckInRecordScreen(
-    checkInViewModel: CheckInViewModel = viewModel(),
+    checkInViewModel: CheckInRecordsViewModel = viewModel(),
     optionsViewModel: OptionsViewModel = viewModel()
 ) {
     val context = LocalContext.current
